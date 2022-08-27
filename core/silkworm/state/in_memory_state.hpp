@@ -87,6 +87,7 @@ class InMemoryState : public State {
     const std::unordered_map<uint64_t, AccountChanges>& account_changes() const { return account_changes_; }
     const std::unordered_map<evmc::address, Account>& accounts() const { return accounts_; }
 
+    void read_locations(const evmc::address& address, uint64_t incarnation, std::vector<evmc::bytes32>& locations) const noexcept;
   private:
     evmc::bytes32 account_storage_root(const evmc::address& address, uint64_t incarnation) const;
 

@@ -260,4 +260,17 @@ evmc::bytes32 InMemoryState::state_root_hash() const {
     return hb.root_hash();
 }
 
+void InMemoryState::read_locations(const evmc::address& address, uint64_t incarnation, std::vector<evmc::bytes32>& locations) const noexcept {
+    auto it1{storage_.find(address)};
+    if (it1 == storage_.end()) {
+        return;
+    }
+    auto it2{it1->second.find(incarnation)};
+    if (it2 == it1->second.end()) {
+        return;
+    }
+    for (auto& it3 : it2->second) {
+        locations.push_back(it3.first);
+    }
+}
 }  // namespace silkworm

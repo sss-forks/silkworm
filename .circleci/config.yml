@@ -14,6 +14,10 @@
 
 version: 2.1
 
+orbs:
+  aws-ecr: circleci/aws-ecr@7.2.0
+  slack: circleci/slack@4.4.4
+
 commands:
   checkout_with_submodules:
     steps:
@@ -58,7 +62,7 @@ commands:
       - run:
           name: "Cmake"
           working_directory: ~/build
-          command: cmake ../project -DCMAKE_TOOLCHAIN_FILE=$HOME/project/cmake/toolchain/$TOOLCHAIN.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSILKWORM_CLANG_COVERAGE=$CLANG_COVERAGE -DSILKWORM_SANITIZE=$SANITIZE
+          command: cmake ../project -DCMAKE_TOOLCHAIN_FILE=$HOME/project/cmake/toolchain/$TOOLCHAIN.cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DSILKWORM_CLANG_COVERAGE=$CLANG_COVERAGE -DSILKWORM_SANITIZE=$SANITIZE -DSILKWORM_CORE_ONLY=$SILKWORM_CORE_ONLY
       - save_cache:
           name: "Save Hunter cache"
           key: *hunter-cache-key
@@ -101,6 +105,32 @@ commands:
           command: cmd/test/sentry_test
 
 jobs:
+  linux-gcc-12-crosscheck:
+    environment:
+      TOOLCHAIN: cxx20
+      BUILD_TYPE: Debug
+      CLANG_COVERAGE: OFF
+      SANITIZE: OFF
+    docker:
+      - image: ethereum/cpp-build-env:18-gcc-12
+    resource_class: xlarge
+    steps:
+      - checkout_with_submodules
+      - build
+      - aws-ecr/build-and-push-image:
+          create-repo: true
+          dockerfile: project/Dockerfile
+          path: ..
+          repo: circleci-silkworm
+          tag: "$CIRCLE_SHA1"
+      - slack/notify:
+          event: fail
+          mentions: "@here"
+          template: basic_fail_1
+      - slack/notify:
+          event: pass
+          template: success_tagged_deploy_1
+
   linux-gcc-11-thread-sanitizer:
     environment:
       TOOLCHAIN: cxx20
@@ -260,9 +290,10 @@ workflows:
   version: 2
   silkworm:
     jobs:
-      - linux-gcc-10-debug
-      - linux-gcc-12-release
-      - linux-gcc-11-thread-sanitizer
-      - linux-clang-13-coverage
-      - linux-clang-13-address-sanitizer
-      - linux-wasm-build
+      - linux-gcc-12-crosscheck
+      #- linux-gcc-10-debug
+      #- linux-gcc-12-release
+      #- linux-gcc-11-thread-sanitizer
+      #- linux-clang-13-coverage
+      #- linux-clang-13-address-sanitizer
+      #- linux-wasm-build
