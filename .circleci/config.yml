@@ -117,6 +117,9 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout_with_submodules
+      - setup_remote_docker:
+          version: 20.10.14
+          docker_layer_caching: true
       - build
       - aws-ecr/build-and-push-image:
           create-repo: true
