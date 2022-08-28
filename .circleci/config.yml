@@ -111,6 +111,7 @@ jobs:
       BUILD_TYPE: Debug
       CLANG_COVERAGE: OFF
       SANITIZE: OFF
+      HUNTER_STATUS_DEBUG: ON
     docker:
       - image: ethereum/cpp-build-env:18-gcc-12
     resource_class: xlarge
