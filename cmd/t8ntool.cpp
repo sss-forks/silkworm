@@ -99,9 +99,13 @@ nlohmann::json to_constant_bytes(std::string s, uint64_t length) {
 
 std::string from_constant_bytes(nlohmann::json o) {
     using namespace nlohmann;
-    return o.at("bytes").at(0).at("constant");
+    auto bytesValue = o.at("bytes");
+    assert(bytesValue.size() == 1);
+    auto bytes = bytesValue.at(0);
+    auto length =  bytes.at("length");
+    auto constant = bytes.at("constant").get<std::string>();
+    return constant;
 }
-
 
 int main(int argc, char* argv[]) {
     using namespace silkworm;
