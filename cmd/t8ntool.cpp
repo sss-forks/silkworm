@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
         tx.type = static_cast<Transaction::Type>(intx::from_string<uint64_t>(input_tx.value("type", "0x00")));
         tx.nonce = intx::from_string<uint64_t>(input_tx.value("nonce", "0x00"));
         tx.gas_limit = intx::from_string<uint64_t>(input_tx.value("gas", "0x00"));
-        if (!input_tx.at("to").is_null()) {
+        if (input_tx.contains("to") && !input_tx.at("to").is_null()) {
             tx.to = to_evmc_address(from_hex(input_tx.value("to", "0x")).value());
         }
         tx.from = to_evmc_address(from_hex(input_tx.value("from", "0x")).value());
