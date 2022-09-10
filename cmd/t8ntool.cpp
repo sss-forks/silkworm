@@ -281,10 +281,36 @@ int main(int argc, char* argv[]) {
             continue;
         }
 
-        Receipt receipt;
+        Receipt receipt = {};
         processor.execute_transaction(txn, receipt);
         r["status"] = hex(receipt.success);
         r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
+        if (!receipt.outputData.empty()) {
+            r["outputData"] = "0x" + to_hex(receipt.outputData);
+        }
+
+        int logIndex = 0;
+        json jlogs;
+        for (const Log& log : receipt.logs) {
+            json jl;
+            jl["index"] = logIndex;
+            jl["address"] = "0x" + to_hex(log.address);
+            jl["data"] = "0x" + to_hex(log.data);
+
+            int topicIndex = 0;
+            json jtopics;
+            for (const evmc::bytes32& topic : log.topics) {
+                json jt;
+                jt["index"] = topicIndex;
+                jt["value"] = to_constant_bytes("0x" + strip_leading_zeros(to_hex(topic.bytes)), 32);
+                jtopics.push_back(jt);
+                topicIndex++;
+            }
+
+            jlogs.push_back(jl);
+            logIndex++;
+        }
+        r["logs"] = jlogs;
         receipts.push_back(r);
         txi++;
     }

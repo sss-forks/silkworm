@@ -30,6 +30,7 @@ struct Receipt {
     uint64_t cumulative_gas_used{0};
     Bloom bloom;
     std::vector<Log> logs;
+    Bytes outputData;
 };
 
 namespace rlp {

@@ -120,6 +120,7 @@ void ExecutionProcessor::execute_transaction(const Transaction& txn, Receipt& re
     receipt.success = vm_res.status == EVMC_SUCCESS;
     receipt.cumulative_gas_used = cumulative_gas_used_;
     receipt.bloom = logs_bloom(state_.logs());
+    receipt.outputData = vm_res.data;
     std::swap(receipt.logs, state_.logs());
 }
 
