@@ -223,25 +223,17 @@ int main(int argc, char* argv[]) {
             tx.max_priority_fee_per_gas = gas_price;
             tx.max_fee_per_gas = gas_price;
         }
-        /*
-                                        std::cout << "tx 2" << std::endl;
-                        json access_list = input_tx.value("accessList",json{});
-                        for (auto& jae : access_list) {
-                            AccessListEntry ae = AccessListEntry{};
-                            ae.account = to_address(from_hex(jae.value("address", "0x")).value());
-                            for (auto& as : jae.at("storageKeys")) {
-                                evmc::bytes32 b = to_bytes32(from_hex(as.get<std::string>()).value());
-                                ae.storage_keys.push_back(b);
-                            }
-                            tx.access_list.push_back(ae);
-                        }
-                                        std::cout << "tx 3" << std::endl;
-                        for (auto& ae : tx.access_list) {
-                            std::cout << "account: " << to_hex(ae.account) << std::endl;
-                            for (auto& aes : ae.storage_keys) {
-                                std::cout << "\t storage: " << to_hex(aes) << std::endl;
-                            }
-                        }*/
+
+        json access_list = input_tx.value("accessList",json{});
+        for (auto& jae : access_list) {
+            AccessListEntry ae = AccessListEntry{};
+            ae.account = to_evmc_address(from_hex(jae.value("address", "0x")).value());
+            for (auto& as : jae.at("storageKeys")) {
+                evmc::bytes32 b = to_bytes32(from_hex(as.get<std::string>()).value());
+                ae.storage_keys.push_back(b);
+            }
+            tx.access_list.push_back(ae);
+        }
 
         block.transactions.push_back(tx);
     }
