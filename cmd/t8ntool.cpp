@@ -286,7 +286,7 @@ int main(int argc, char* argv[]) {
         r["status"] = hex(receipt.success);
         r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
         if (!receipt.outputData.empty()) {
-            r["outputData"] = "0x" + to_hex(receipt.outputData);
+            r["outputData"] = to_constant_bytes("0x" + to_hex(receipt.outputData), receipt.outputData.size());
         }
 
         int logIndex = 0;
@@ -295,7 +295,7 @@ int main(int argc, char* argv[]) {
             json jl;
             jl["index"] = logIndex;
             jl["address"] = "0x" + to_hex(log.address);
-            jl["data"] = "0x" + to_hex(log.data);
+            jl["data"] = to_constant_bytes("0x" + to_hex(log.data), log.data.size());
 
             int topicIndex = 0;
             json jtopics;
@@ -306,7 +306,7 @@ int main(int argc, char* argv[]) {
                 jtopics.push_back(jt);
                 topicIndex++;
             }
-
+            jl["topics"] = jtopics;
             jlogs.push_back(jl);
             logIndex++;
         }
