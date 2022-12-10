@@ -277,7 +277,8 @@ int main(int argc, char* argv[]) {
         Receipt receipt = {};
         processor.execute_transaction(txn, receipt);
         r["status"] = hex(receipt.success);
-        r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
+        //r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
+        r["cumulativeGasUsed"] = to_constant_bytes("0x" + hex(receipt.cumulative_gas_used), 8);
         if (!receipt.outputData.empty()) {
             r["outputData"] = to_constant_bytes("0x" + to_hex(receipt.outputData), receipt.outputData.size());
         }
