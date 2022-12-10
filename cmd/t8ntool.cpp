@@ -278,7 +278,7 @@ int main(int argc, char* argv[]) {
         processor.execute_transaction(txn, receipt);
         r["status"] = hex(receipt.success);
         //r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
-        r["cumulativeGasUsed"] = to_constant_bytes("0x" + hex(receipt.cumulative_gas_used), 8);
+        r["cumulativeGasUsed"] = to_constant_bytes(hex(receipt.cumulative_gas_used), 8);
         if (!receipt.outputData.empty()) {
             r["outputData"] = to_constant_bytes("0x" + to_hex(receipt.outputData), receipt.outputData.size());
         }
@@ -296,7 +296,7 @@ int main(int argc, char* argv[]) {
             for (const evmc::bytes32& topic : log.topics) {
                 json jt;
                 jt["index"] = topicIndex;
-                jt["value"] = to_constant_bytes("0x" + strip_leading_zeros(to_hex(topic.bytes)), 32);
+                jt["value"] = to_constant_bytes("0x" + to_hex(topic.bytes), 32);
                 jtopics.push_back(jt);
                 topicIndex++;
             }
