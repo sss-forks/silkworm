@@ -1,11 +1,19 @@
+#include <iostream>
+
 #include <CLI/CLI.hpp>
 #include <magic_enum.hpp>
 
 #include <silkworm/common/directories.hpp>
 #include <silkworm/common/log.hpp>
-#include <silkworm/state/in_memory_state.hpp>
 #include <silkworm/execution/processor.hpp>
-#include <iostream>
+#include <silkworm/state/in_memory_state.hpp>
+
+#include "evmone/tracing.hpp"
+#include "evmone/instructions_traits.hpp"
+
+using namespace silkworm;
+using namespace nlohmann;
+
 
 std::string hex(uint64_t v) {
     std::stringstream stream;
@@ -13,6 +21,119 @@ std::string hex(uint64_t v) {
     std::string h( stream.str() );
     return "0x" + h;
 }
+
+class T8nTracer : public EvmTracer {
+    struct Context
+    {
+        const uint8_t* const code;  ///< Reference to the code being executed.
+        const int64_t start_gas;
+
+        Context(const uint8_t* c, int64_t g) noexcept : code{c}, start_gas{g} {}
+    };
+
+    const char* const* m_opcode_names = nullptr;
+    std::stack<Context> m_contexts;
+
+
+  public:
+    T8nTracer(std::ofstream& _file, std::optional<evmc::address> contract_address = std::nullopt,
+               std::optional<evmc::bytes32> key = std::nullopt)
+        : file(_file), contract_address_(contract_address), key_(key) {}
+
+    std::string get_name(const char* const* names, uint8_t opcode)
+    {
+        const auto name = names[opcode];
+        return (name != nullptr) ? name : "0x" + evmc::hex(opcode);
+    }
+
+    virtual void on_value(const std::string& phaseName, const std::string& valueName, const std::string& value) noexcept override {
+        json r;
+        r["type"] = "SwValue";
+        r["phase"] = phaseName;
+        r["name"] = valueName;
+        r["value"] = value;
+        file << r << std::endl;
+        std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
+    }
+
+    void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code, int64_t gas_left) noexcept override {
+
+        if (m_contexts.empty())
+            m_opcode_names = evmc_get_instruction_names_table(rev);
+        m_contexts.emplace(code.data(), msg.gas);
+
+        json r;
+        r["type"] = "SwExecutionStart";
+        r["code"] = to_hex(code, true);
+        r["recipient"] = to_hex(msg.recipient.bytes, true);
+        r["gas_left"] = hex(static_cast<uint64_t>(gas_left));
+        file << r << std::endl;
+        std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
+    }
+
+    void on_instruction_start(uint32_t pc, const intx::uint256* /*stack_top*/, int /*stack_height*/,
+                              const evmone::ExecutionState& state,
+                              const IntraBlockState& intra_block_state) noexcept override {
+
+        intra_block_state.number_of_self_destructs();
+        const auto& ctx = m_contexts.top();
+        const auto opcode = ctx.code[pc];
+
+        json r;
+        r["type"] = "SwInstructionStart";
+        r["pc"] = pc;
+        r["opcode"] = get_name(m_opcode_names, opcode);
+        r["gas_left"] = hex(static_cast<uint64_t>(state.gas_left));
+        file << r << std::endl;
+        std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
+    }
+
+    void on_execution_end(const evmc_result& res, const IntraBlockState& intra_block_state) noexcept override {
+        //const auto& ctx = m_contexts.top();
+        intra_block_state.number_of_self_destructs();
+
+        json r;
+        r["type"] = "SwExecutionEnd";
+        r["status_code"] = evmc_status_code_to_string(res.status_code);
+        file << r << std::endl;
+        std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
+
+        m_contexts.pop();
+        if (m_contexts.empty())
+            m_opcode_names = nullptr;
+    }
+
+    void on_precompiled_run(const evmc_result& /*result*/, int64_t /*gas*/,
+                            const IntraBlockState& /*intra_block_state*/) noexcept override {}
+
+    void on_reward_granted(const CallResult& /*result*/,
+                           const IntraBlockState& /*intra_block_state*/) noexcept override {}
+
+    bool execution_start_called() const { return execution_start_called_; }
+    bool execution_end_called() const { return execution_end_called_; }
+    const Bytes& bytecode() const { return bytecode_; }
+    const evmc_revision& rev() const { return rev_; }
+    const evmc_message& msg() const { return msg_; }
+    const std::vector<uint32_t>& pc_stack() const { return pc_stack_; }
+    const std::map<uint32_t, std::size_t>& memory_size_stack() const { return memory_size_stack_; }
+    const std::map<uint32_t, evmc::bytes32>& storage_stack() const { return storage_stack_; }
+    const CallResult& result() const { return result_; }
+
+  private:
+
+    std::ofstream& file;
+    bool execution_start_called_{false};
+    bool execution_end_called_{false};
+    std::optional<evmc::address> contract_address_;
+    std::optional<evmc::bytes32> key_;
+    evmc_revision rev_;
+    evmc_message msg_;
+    Bytes bytecode_;
+    std::vector<uint32_t> pc_stack_;
+    std::map<uint32_t, std::size_t> memory_size_stack_;
+    std::map<uint32_t, evmc::bytes32> storage_stack_;
+    CallResult result_;
+};
 
 std::string strip_leading_zeros(std::string s) {
     size_t new_start = 0;
@@ -114,9 +235,11 @@ int main(int argc, char* argv[]) {
     CLI::App cli{"Execute a t8n transition."};
 
     std::string pre_path{}, output_dir_path{}, output_post_path{};
+    bool crosscheck = false;
 
     cli.add_option("--pre", pre_path, "Path to pre file")->check(CLI::ExistingFile);
     cli.add_option("--output-dir", output_dir_path, "Path to output directory")->check(CLI::ExistingDirectory);
+    cli.add_option("--zevm-silkworm-crosscheck", crosscheck);
 
     CLI11_PARSE(cli, argc, argv);
 
@@ -240,7 +363,14 @@ int main(int argc, char* argv[]) {
     }
 
 
+    std::ofstream* file = nullptr;
     EVM& evm = processor.evm();
+    if (crosscheck) {
+        file = new std::ofstream();
+        file->open(output_dir_path + "/log.json");
+        auto tracer = new T8nTracer(*file);
+        evm.add_tracer(*tracer);
+    }
 
     if (evm.revision() < EVMC_LONDON) {
         block.header.base_fee_per_gas = {};
@@ -250,7 +380,7 @@ int main(int argc, char* argv[]) {
     state.write_to_db(evm.block().header.number - 1);
     state.clear_journal_and_substate();
 
-    std::cout << "start receipts" << std::endl;
+    std::cout << "start transactions" << std::endl;
     json result;
     std::vector<json> receipts;
     uint64_t txi = 0;
@@ -337,7 +467,7 @@ int main(int argc, char* argv[]) {
         }
 
         json a;
-        a["address"] = "0x" + to_hex(address);
+        a["address"] = to_hex(address, true);
         a["balance"] = to_constant_bytes("0x" + intx::to_string(account.balance, 16), 32);
         a["nonce"] = hex(account.nonce);
         a["code"] = "0x" + to_hex(db.read_code(account.code_hash));
@@ -362,6 +492,10 @@ int main(int argc, char* argv[]) {
 
     std::ofstream posto(output_post_path);
     posto << std::setw(4) << post << std::endl;
+
+    if (file) {
+        file->close();
+    }
 
     return 0;
 }

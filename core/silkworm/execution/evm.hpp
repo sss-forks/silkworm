@@ -41,7 +41,7 @@ class EvmTracer {
   public:
     virtual ~EvmTracer() = default;
 
-    virtual void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code) noexcept = 0;
+    virtual void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code, int64_t gas_left) noexcept = 0;
 
     virtual void on_instruction_start(uint32_t pc, const intx::uint256* stack_top, int stack_height,
                                       const evmone::ExecutionState& state,
@@ -51,6 +51,8 @@ class EvmTracer {
 
     virtual void on_precompiled_run(const evmc_result& result, int64_t gas,
                                     const IntraBlockState& intra_block_state) noexcept = 0;
+
+    virtual void on_value(const std::string& phaseName, const std::string& valueName, const std::string& value) noexcept = 0;
 
     virtual void on_reward_granted(const CallResult& result, const IntraBlockState& intra_block_state) noexcept = 0;
 };
@@ -94,6 +96,10 @@ class EVM {
     evmc_vm* exo_evm{nullptr};  // it's possible to use an exogenous EVMC VM
 
     evmc::address beneficiary;  // block.header.beneficiary by default; may be overridden for Clique
+
+    void tracer_on_value(const std::string& phaseName, const std::string& valueName, const std::string& value);
+
+    intx::uint128 intrinsic_gas(const Transaction& txn, bool homestead, bool istanbul) noexcept;
 
   private:
     friend class EvmHost;
