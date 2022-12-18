@@ -56,7 +56,7 @@ class T8nTracer : public EvmTracer {
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
     }
 
-    void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code, int64_t gas_left) noexcept override {
+    void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code) noexcept override {
 
         if (m_contexts.empty())
             m_opcode_names = evmc_get_instruction_names_table(rev);
@@ -66,7 +66,7 @@ class T8nTracer : public EvmTracer {
         r["type"] = "SwExecutionStart";
         r["code"] = to_hex(code, true);
         r["recipient"] = to_hex(msg.recipient.bytes, true);
-        r["gas_left"] = hex(static_cast<uint64_t>(gas_left));
+        r["gas"] = hex(static_cast<uint64_t>(msg.gas));
         file << r << std::endl;
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
     }

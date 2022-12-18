@@ -41,7 +41,7 @@ class EvmTracer {
   public:
     virtual ~EvmTracer() = default;
 
-    virtual void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code, int64_t gas_left) noexcept = 0;
+    virtual void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view code) noexcept = 0;
 
     virtual void on_instruction_start(uint32_t pc, const intx::uint256* stack_top, int stack_height,
                                       const evmone::ExecutionState& state,
