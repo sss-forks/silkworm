@@ -375,7 +375,9 @@ class TestTracer : public EvmTracer {
         : contract_address_(contract_address), key_(key) {}
 
     void on_value(const std::string& phaseName, const std::string& valueName, const std::string& value) noexcept override {
-
+        (void) phaseName;
+        (void) valueName;
+        (void) value;
     }
 
     void on_execution_start(evmc_revision rev, const evmc_message& msg, evmone::bytes_view bytecode) noexcept override {
