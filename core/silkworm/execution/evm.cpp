@@ -28,7 +28,7 @@
 #include <evmone/tracing.hpp>
 #include <evmone/vm.hpp>
 #include <silkpre/precompile.h>
-
+#include <silkworm/common/tracing.hpp>
 #include <silkworm/chain/protocol_param.hpp>
 
 #include "address.hpp"
@@ -69,16 +69,8 @@ EVM::EVM(const Block& block, IntraBlockState& state, const ChainConfig& config) 
 
 EVM::~EVM() { evm1_->destroy(evm1_); }
 
-void EVM::tracer_on_value(const std::string& phaseName, const std::string& valueName, const std::string& value) {
-    if (!tracers_.empty()) {
-        for (auto tracer : tracers_) {
-            tracer.get().on_value(phaseName, valueName, value);
-        }
-    }
-}
-
 CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
-    tracer_on_value("EVM::execute", "gas", to_hex(gas, true));
+    tracer_on_value("EVM::execute", "gas", hexu64(gas));
 
     assert(txn.from.has_value());  // sender must be recovered
 
@@ -102,6 +94,8 @@ CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
     };
 
     evmc::Result res{contract_creation ? create(message) : call(message)};
+
+    tracer_on_value("EVM::execute", "res.status_code", hexu64(static_cast<uint64_t>(res.status_code)));
 
     return {res.status_code, static_cast<uint64_t>(res.gas_left), {res.output_data, res.output_size}};
 }
@@ -348,46 +342,6 @@ evmc_result EVM::execute_with_advanced_interpreter(evmc_revision rev, const evmc
 }
 
 evmc_revision EVM::revision() const noexcept { return config().revision(block_.header.number); }
-
-intx::uint128 EVM::intrinsic_gas(const Transaction& txn, bool homestead, bool istanbul) noexcept {
-    intx::uint128 gas{fee::kGTransaction};
-    tracer_on_value("EVM::intrinsic_gas 0", "gas", "0x" + hex(gas));
-
-
-    if (!txn.to && homestead) {
-        gas += fee::kGTxCreate;
-        tracer_on_value("EVM::intrinsic_gas 1", "gas", "0x" + hex(gas));
-    }
-
-    // https://eips.ethereum.org/EIPS/eip-2930
-    gas += intx::uint128{txn.access_list.size()} * fee::kAccessListAddressCost;
-    tracer_on_value("EVM::intrinsic_gas 2", "gas", "0x" + hex(gas));
-    for (const AccessListEntry& e : txn.access_list) {
-        gas += intx::uint128{e.storage_keys.size()} * fee::kAccessListStorageKeyCost;
-        tracer_on_value("EVM::intrinsic_gas 3", "gas", "0x" + hex(gas));
-    }
-
-    if (txn.data.empty()) {
-        tracer_on_value("EVM::intrinsic_gas 4", "gas", "0x" + hex(gas));
-        return gas;
-    }
-
-    intx::uint128 non_zero_bytes{as_range::count_if(txn.data, [](char c) { return c != 0; })};
-    tracer_on_value("EVM::intrinsic_gas 5", "non_zero_bytes", "0x" + hex(non_zero_bytes));
-
-    uint64_t nonZeroGas{istanbul ? fee::kGTxDataNonZeroIstanbul : fee::kGTxDataNonZeroFrontier};
-    tracer_on_value("EVM::intrinsic_gas 6", "nonZeroGas", hexu64(nonZeroGas));
-
-    gas += non_zero_bytes * nonZeroGas;
-    tracer_on_value("EVM::intrinsic_gas 7", "gas", "0x" + hex(gas));
-
-    intx::uint128 zero_bytes{txn.data.length() - non_zero_bytes};
-    tracer_on_value("EVM::intrinsic_gas 8", "zero_bytes", "0x" + hex(zero_bytes));
-    gas += zero_bytes * fee::kGTxDataZero;
-    tracer_on_value("EVM::intrinsic_gas 9", "gas", "0x" + hex(gas));
-
-    return gas;
-}
 
 void EVM::add_tracer(EvmTracer& tracer) noexcept {
     assert(advanced_analysis_cache == nullptr);

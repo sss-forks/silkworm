@@ -95,8 +95,8 @@ void ExecutionProcessor::execute_transaction(const Transaction& txn, Receipt& re
     }
 
     const evmc_revision rev{evm_.revision()};
-    const intx::uint128 g0{evm_.intrinsic_gas(txn, rev >= EVMC_HOMESTEAD, rev >= EVMC_ISTANBUL)};
-    evm_.tracer_on_value("ExecutionProcessor::execute_transaction", "g0", "0x" + hex(g0));
+    const intx::uint128 g0{intrinsic_gas(txn, rev >= EVMC_HOMESTEAD, rev >= EVMC_ISTANBUL)};
+    tracer_on_value("ExecutionProcessor::execute_transaction", "g0", "0x" + hex(g0));
     assert(g0 <= UINT64_MAX);  // true due to the precondition (transaction must be valid)
 
 

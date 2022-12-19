@@ -8,6 +8,7 @@
 #include <silkworm/execution/processor.hpp>
 #include <silkworm/state/in_memory_state.hpp>
 #include <silkworm/common/util.hpp>
+#include <silkworm/common/tracing.hpp>
 
 #include "evmone/tracing.hpp"
 #include "evmone/instructions_traits.hpp"
@@ -40,7 +41,7 @@ class T8nTracer : public EvmTracer {
         return (name != nullptr) ? name : "0x" + evmc::hex(opcode);
     }
 
-    virtual void on_value(const std::string& phaseName, const std::string& valueName, const std::string& value) noexcept override {
+    void on_value(const std::string& phaseName, const std::string& valueName, const std::string& value) noexcept override {
         json r;
         r["type"] = "SwValue";
         r["phase"] = phaseName;
@@ -364,6 +365,7 @@ int main(int argc, char* argv[]) {
         file->open(output_dir_path + "/log.json");
         auto tracer = new T8nTracer(*file);
         evm.add_tracer(*tracer);
+        tracer_add(tracer);
     }
 
     if (evm.revision() < EVMC_LONDON) {
