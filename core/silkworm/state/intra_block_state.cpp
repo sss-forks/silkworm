@@ -27,7 +27,7 @@ namespace silkworm {
 const state::Object* IntraBlockState::get_object(const evmc::address& address) const noexcept {
     auto it{objects_.find(address)};
     if (it != objects_.end()) {
-        tracer_on_value("IntraBlockState::get_object", "exists in objects", "0x" + hex(address));
+        tracer_on_value("IntraBlockState::get_object", "exists in state.objects", "0x" + hex(address));
         return &it->second;
     }
 
@@ -35,7 +35,7 @@ const state::Object* IntraBlockState::get_object(const evmc::address& address) c
     if (account == std::nullopt) {
         return nullptr;
     }
-    tracer_on_value("IntraBlockState::get_object", "exists in accounts", "0x" + hex(address));
+    tracer_on_value("IntraBlockState::get_object", "exists in db.accounts", "0x" + hex(address));
 
     auto& obj{objects_[address]};
     obj.initial = *account;

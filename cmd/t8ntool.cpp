@@ -249,7 +249,6 @@ int main(int argc, char* argv[]) {
     output_post_path = output_dir_path + "/post_test.json";
     std::cout << "output_post_path: " << output_post_path << std::endl;
 
-
     std::ifstream pre_stream(pre_path);
     json pre;
     pre_stream >> pre;
@@ -285,81 +284,96 @@ int main(int argc, char* argv[]) {
     }
 
     InMemoryState db{};
+    {
+        auto engine{consensus::engine_factory(kTestConfig)};
+
+        ExecutionProcessor processor{block, *engine, db, kTestConfig};
+        IntraBlockState& state = processor.evm().state();
+
+        std::cout << "Calculated revision: " << processor.evm().revision() << std::endl;
+
+        json pre_alloc = pre.value("alloc", json{});
+        for (json::iterator it = pre_alloc.begin(); it != pre_alloc.end(); ++it) {
+            json account = it.value();
+            std::string balance = from_constant_bytes(account.value("balance", json{}));
+
+            evmc::address address = to_evmc_address(from_hex(account.value("address", "0x00")).value());
+            state.add_to_balance(address, intx::from_string<intx::uint256>(balance));
+            state.set_nonce(address, intx::from_string<uint64_t>(account.value("nonce", "0x00")));
+            state.set_code(address, from_hex(account.value("code", "0x")).value());
+            json storage = account.value("storage", json{});
+
+            for (json::iterator sit = storage.begin(); sit != storage.end(); ++sit) {
+                json kv = sit.value();
+                std::string key = from_constant_bytes(kv.value("key", json{}));
+                std::string value = from_constant_bytes(kv.value("value", json{}));
+
+                evmc::bytes32 location = to_bytes32(from_hex(key).value());
+                evmc::bytes32 value32 = to_bytes32(from_hex(value).value());
+                state.set_storage(address, location, value32);
+            }
+        }
+
+        json pre_txs = pre.value("txs", json{});
+        for (auto& input_tx : pre_txs) {
+            std::cout << "tx start" << std::endl;
+            Transaction tx{};
+            tx.type = static_cast<Transaction::Type>(intx::from_string<uint64_t>(input_tx.value("type", "0x00")));
+            tx.nonce = intx::from_string<uint64_t>(input_tx.value("nonce", "0x00"));
+            tx.gas_limit = intx::from_string<uint64_t>(input_tx.value("gas", "0x00"));
+            if (input_tx.contains("to") && !input_tx.at("to").is_null()) {
+                tx.to = to_evmc_address(from_hex(input_tx.value("to", "0x")).value());
+            }
+            // tx.from = to_evmc_address(from_hex(input_tx.value("from", "0x")).value());
+            tx.from = to_evmc_address(from_hex(from_constant_bytes(input_tx.value("from", json{}))).value());
+            tx.value = intx::from_string<intx::uint256>(from_constant_bytes(input_tx.value("value", json{})));
+            tx.data = from_hex(from_constant_bytes(input_tx.value("input", json{}))).value();
+            tx.odd_y_parity = false;
+            tx.chain_id = std::nullopt;
+            tx.r = 1;
+            tx.s = 1;
+
+            std::cout << "tx 1" << std::endl;
+            if (tx.type == silkworm::Transaction::Type::kEip1559) {
+                tx.max_priority_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxPriorityFeePerGas", "0x00"));
+                tx.max_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxFeePerGas", "0x00"));
+            } else {
+                auto gas_price = intx::from_string<uint64_t>(input_tx.value("gasPrice", "0x00"));
+                tx.max_priority_fee_per_gas = gas_price;
+                tx.max_fee_per_gas = gas_price;
+            }
+
+            json access_list = input_tx.value("accessList", json{});
+            for (auto& jae : access_list) {
+                AccessListEntry ae = AccessListEntry{};
+                ae.account = to_evmc_address(from_hex(jae.value("address", "0x")).value());
+                for (auto& as : jae.at("storageKeys")) {
+                    evmc::bytes32 b = to_bytes32(from_hex(as.get<std::string>()).value());
+                    ae.storage_keys.push_back(b);
+                }
+                tx.access_list.push_back(ae);
+            }
+
+            block.transactions.push_back(tx);
+        }
+        EVM& evm = processor.evm();
+
+        if (evm.revision() < EVMC_LONDON) {
+            block.header.base_fee_per_gas = {};
+        }
+
+        state.finalize_transaction();
+        state.write_to_db(evm.block().header.number - 1);
+        state.clear_journal_and_substate();
+    }
+
     auto engine{consensus::engine_factory(kTestConfig)};
 
-    ExecutionProcessor processor{block,*engine, db, kTestConfig};
+    ExecutionProcessor processor{block, *engine, db, kTestConfig};
     IntraBlockState& state = processor.evm().state();
-
-    std::cout << "Calculated revision: " << processor.evm().revision() << std::endl;
-
-    json pre_alloc = pre.value("alloc", json{});
-    for (json::iterator it = pre_alloc.begin(); it != pre_alloc.end(); ++it) {
-        json account = it.value();
-        std::string balance = from_constant_bytes(account.value("balance", json{}));
-
-        evmc::address address = to_evmc_address(from_hex(account.value("address", "0x00")).value());
-        state.add_to_balance(address, intx::from_string<intx::uint256>(balance));
-        state.set_nonce(address, intx::from_string<uint64_t>(account.value("nonce", "0x00")));
-        state.set_code(address, from_hex(account.value("code", "0x")).value());
-        json storage = account.value("storage", json{});
-
-        for (json::iterator sit = storage.begin(); sit != storage.end(); ++sit) {
-            json kv = sit.value();
-            std::string key = from_constant_bytes(kv.value("key", json{}));
-            std::string value = from_constant_bytes(kv.value("value", json{}));
-
-            evmc::bytes32 location = to_bytes32(from_hex(key).value());
-            evmc::bytes32 value32 = to_bytes32(from_hex(value).value());
-            state.set_storage(address, location, value32);
-        }
-    }
-
-    json pre_txs = pre.value("txs", json{});
-    for (auto& input_tx : pre_txs) {
-        std::cout << "tx start" << std::endl;
-        Transaction tx{};
-        tx.type = static_cast<Transaction::Type>(intx::from_string<uint64_t>(input_tx.value("type", "0x00")));
-        tx.nonce = intx::from_string<uint64_t>(input_tx.value("nonce", "0x00"));
-        tx.gas_limit = intx::from_string<uint64_t>(input_tx.value("gas", "0x00"));
-        if (input_tx.contains("to") && !input_tx.at("to").is_null()) {
-            tx.to = to_evmc_address(from_hex(input_tx.value("to", "0x")).value());
-        }
-        //tx.from = to_evmc_address(from_hex(input_tx.value("from", "0x")).value());
-        tx.from = to_evmc_address(from_hex(from_constant_bytes(input_tx.value("from", json{}))).value());
-        tx.value = intx::from_string<intx::uint256>(from_constant_bytes(input_tx.value("value", json{})));
-        tx.data = from_hex(from_constant_bytes(input_tx.value("input", json{}))).value();
-        tx.odd_y_parity = false;
-        tx.chain_id = std::nullopt;
-        tx.r = 1;
-        tx.s = 1;
-
-        std::cout << "tx 1" << std::endl;
-        if (tx.type == silkworm::Transaction::Type::kEip1559) {
-            tx.max_priority_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxPriorityFeePerGas", "0x00"));
-            tx.max_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxFeePerGas", "0x00"));
-        } else {
-            auto gas_price = intx::from_string<uint64_t>(input_tx.value("gasPrice", "0x00"));
-            tx.max_priority_fee_per_gas = gas_price;
-            tx.max_fee_per_gas = gas_price;
-        }
-
-        json access_list = input_tx.value("accessList",json{});
-        for (auto& jae : access_list) {
-            AccessListEntry ae = AccessListEntry{};
-            ae.account = to_evmc_address(from_hex(jae.value("address", "0x")).value());
-            for (auto& as : jae.at("storageKeys")) {
-                evmc::bytes32 b = to_bytes32(from_hex(as.get<std::string>()).value());
-                ae.storage_keys.push_back(b);
-            }
-            tx.access_list.push_back(ae);
-        }
-
-        block.transactions.push_back(tx);
-    }
-
+    EVM& evm = processor.evm();
 
     std::ofstream* file = nullptr;
-    EVM& evm = processor.evm();
     if (crosscheck) {
         file = new std::ofstream();
         file->open(output_dir_path + "/log.json");
@@ -367,14 +381,6 @@ int main(int argc, char* argv[]) {
         evm.add_tracer(*tracer);
         tracer_add(tracer);
     }
-
-    if (evm.revision() < EVMC_LONDON) {
-        block.header.base_fee_per_gas = {};
-    }
-
-    state.finalize_transaction();
-    state.write_to_db(evm.block().header.number - 1);
-    state.clear_journal_and_substate();
 
     std::cout << "start transactions" << std::endl;
     json result;
