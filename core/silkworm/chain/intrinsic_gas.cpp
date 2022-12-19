@@ -25,8 +25,6 @@
 namespace silkworm {
 
 intx::uint128 intrinsic_gas(const Transaction& txn, bool homestead, bool istanbul) noexcept {
-    assert(false); // function is replaced with EVM::intrinsic_gas for tracer access
-
     intx::uint128 gas{fee::kGTransaction};
 
     if (!txn.to && homestead) {
