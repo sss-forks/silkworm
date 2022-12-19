@@ -101,8 +101,11 @@ void ExecutionProcessor::execute_transaction(const Transaction& txn, Receipt& re
 
 
     const CallResult vm_res{evm_.execute(txn, txn.gas_limit - static_cast<uint64_t>(g0))};
+    uint64_t refundGas = refund_gas(txn, vm_res.gas_left);
+    tracer_on_value("ExecutionProcessor::execute_transaction", "refundGas",  hexu64(refundGas));
+    tracer_on_value("ExecutionProcessor::execute_transaction", "txn->gas_limit", hexu64(txn.gas_limit));
 
-    const uint64_t gas_used{txn.gas_limit - refund_gas(txn, vm_res.gas_left)};
+    const uint64_t gas_used{txn.gas_limit - refundGas};
 
     // award the fee recipient
     const intx::uint256 priority_fee_per_gas{txn.priority_fee_per_gas(base_fee_per_gas)};

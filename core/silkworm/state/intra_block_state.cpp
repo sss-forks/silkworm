@@ -29,13 +29,17 @@ const state::Object* IntraBlockState::get_object(const evmc::address& address) c
     if (it != objects_.end()) {
         tracer_on_value("IntraBlockState::get_object", "exists in state.objects", "0x" + hex(address));
         return &it->second;
+    } else {
+        tracer_on_value("IntraBlockState::get_object", "doesn't exist in state.objects", "0x" + hex(address));
     }
 
     std::optional<Account> account{db_.read_account(address)};
     if (account == std::nullopt) {
+        tracer_on_value("IntraBlockState::get_object", "doesn't exists in db.accounts", "0x" + hex(address));
         return nullptr;
+    } else {
+        tracer_on_value("IntraBlockState::get_object", "exists in db.accounts", "0x" + hex(address));
     }
-    tracer_on_value("IntraBlockState::get_object", "exists in db.accounts", "0x" + hex(address));
 
     auto& obj{objects_[address]};
     obj.initial = *account;

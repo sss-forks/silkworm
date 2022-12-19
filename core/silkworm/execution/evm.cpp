@@ -96,6 +96,7 @@ CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
     evmc::Result res{contract_creation ? create(message) : call(message)};
 
     tracer_on_value("EVM::execute", "res.status_code", hexu64(static_cast<uint64_t>(res.status_code)));
+    tracer_on_value("EVM::execute", "res.gas_left", hexu64(static_cast<uint64_t>(res.gas_left)));
 
     return {res.status_code, static_cast<uint64_t>(res.gas_left), {res.output_data, res.output_size}};
 }
@@ -125,6 +126,8 @@ evmc::Result EVM::create(const evmc_message& message) noexcept {
         auto init_code_hash{ethash::keccak256(message.input_data, message.input_size)};
         contract_addr = create2_address(message.sender, message.create2_salt, init_code_hash.bytes);
     }
+
+    tracer_on_value("EVM::create", "contract_addr", "0x" + hex(contract_addr));
 
     state_.access_account(contract_addr);
 
