@@ -394,6 +394,8 @@ int main(int argc, char* argv[]) {
         if (err != ValidationResult::kOk) {
             std::cout << "prevalidation failed" << std::endl;
             r["exception"] = validation_error_str(err);
+            r["status"] = hexu64(0);
+            r["cumulativeGasUsed"] = to_constant_bytes(hexu64(0), 8);
             receipts.push_back(r);
             continue;
         }
@@ -402,6 +404,8 @@ int main(int argc, char* argv[]) {
         if (err != ValidationResult::kOk) {
             std::cout << "validation failed" << std::endl;
             r["exception"] = validation_error_str(err);
+            r["status"] = hexu64(0);
+            r["cumulativeGasUsed"] = to_constant_bytes(hexu64(0), 8);
             receipts.push_back(r);
             continue;
         }
