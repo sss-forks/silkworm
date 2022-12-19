@@ -7,6 +7,7 @@
 #include <silkworm/common/log.hpp>
 #include <silkworm/execution/processor.hpp>
 #include <silkworm/state/in_memory_state.hpp>
+#include <silkworm/common/util.hpp>
 
 #include "evmone/tracing.hpp"
 #include "evmone/instructions_traits.hpp"
@@ -14,13 +15,6 @@
 using namespace silkworm;
 using namespace nlohmann;
 
-
-std::string hex(uint64_t v) {
-    std::stringstream stream;
-    stream << std::hex << v;
-    std::string h( stream.str() );
-    return "0x" + h;
-}
 
 class T8nTracer : public EvmTracer {
     struct Context
@@ -66,7 +60,7 @@ class T8nTracer : public EvmTracer {
         r["type"] = "SwExecutionStart";
         r["code"] = to_hex(code, true);
         r["recipient"] = to_hex(msg.recipient.bytes, true);
-        r["gas"] = hex(static_cast<uint64_t>(msg.gas));
+        r["gas"] = hexu64(static_cast<uint64_t>(msg.gas));
         file << r << std::endl;
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
     }
@@ -83,7 +77,7 @@ class T8nTracer : public EvmTracer {
         r["type"] = "SwInstructionStart";
         r["pc"] = pc;
         r["opcode"] = get_name(m_opcode_names, opcode);
-        r["gas_left"] = hex(static_cast<uint64_t>(state.gas_left));
+        r["gas_left"] = hexu64(static_cast<uint64_t>(state.gas_left));
         file << r << std::endl;
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
     }
@@ -386,7 +380,7 @@ int main(int argc, char* argv[]) {
     uint64_t txi = 0;
     for (const Transaction& txn : evm.block().transactions) {
         json r;
-        r["transactionIndex"] = hex(txi);
+        r["transactionIndex"] = hexu64(txi);
 
         ValidationResult err = consensus::pre_validate_transaction(txn, evm.block().header.number, evm.config(), evm.block().header.base_fee_per_gas);
         if (err != ValidationResult::kOk) {
@@ -406,9 +400,9 @@ int main(int argc, char* argv[]) {
 
         Receipt receipt = {};
         processor.execute_transaction(txn, receipt);
-        r["status"] = hex(receipt.success);
+        r["status"] = hexu64(receipt.success);
         //r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
-        r["cumulativeGasUsed"] = to_constant_bytes(hex(receipt.cumulative_gas_used), 8);
+        r["cumulativeGasUsed"] = to_constant_bytes(hexu64(receipt.cumulative_gas_used), 8);
         if (!receipt.outputData.empty()) {
             r["outputData"] = to_constant_bytes("0x" + to_hex(receipt.outputData), receipt.outputData.size());
         }
@@ -469,7 +463,7 @@ int main(int argc, char* argv[]) {
         json a;
         a["address"] = to_hex(address, true);
         a["balance"] = to_constant_bytes("0x" + intx::to_string(account.balance, 16), 32);
-        a["nonce"] = hex(account.nonce);
+        a["nonce"] = hexu64(account.nonce);
         a["code"] = "0x" + to_hex(db.read_code(account.code_hash));
 
         json s(json::value_t::array);

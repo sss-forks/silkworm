@@ -21,6 +21,7 @@
 #include <string_view>
 #include <vector>
 
+
 #include <ethash/keccak.hpp>
 #include <intx/intx.hpp>
 
@@ -82,4 +83,5 @@ size_t prefix_length(ByteView a, ByteView b);
 
 inline ethash::hash256 keccak256(ByteView view) { return ethash::keccak256(view.data(), view.size()); }
 
+std::string hexu64(uint64_t v);
 }  // namespace silkworm

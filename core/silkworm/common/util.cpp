@@ -18,6 +18,7 @@
 
 #include <cstdio>
 #include <regex>
+#include <sstream>
 
 #include <silkworm/common/as_range.hpp>
 
@@ -243,4 +244,10 @@ size_t prefix_length(ByteView a, ByteView b) {
     return len;
 }
 
+std::string hexu64(uint64_t v) {
+    std::stringstream s;
+    s << std::hex << v;
+    std::string h( s.str() );
+    return "0x" + h;
+}
 }  // namespace silkworm

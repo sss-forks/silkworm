@@ -376,7 +376,7 @@ intx::uint128 EVM::intrinsic_gas(const Transaction& txn, bool homestead, bool is
     tracer_on_value("EVM::intrinsic_gas 5", "non_zero_bytes", "0x" + hex(non_zero_bytes));
 
     uint64_t nonZeroGas{istanbul ? fee::kGTxDataNonZeroIstanbul : fee::kGTxDataNonZeroFrontier};
-    tracer_on_value("EVM::intrinsic_gas 6", "nonZeroGas", to_hex(nonZeroGas, true));
+    tracer_on_value("EVM::intrinsic_gas 6", "nonZeroGas", hexu64(nonZeroGas));
 
     gas += non_zero_bytes * nonZeroGas;
     tracer_on_value("EVM::intrinsic_gas 7", "gas", "0x" + hex(gas));
