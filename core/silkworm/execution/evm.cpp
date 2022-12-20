@@ -15,21 +15,24 @@
 */
 
 #include "evm.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <iterator>
 #include <memory>
 
-#include <silkworm/common/as_range.hpp>
 #include <ethash/keccak.hpp>
 #include <evmone/advanced_execution.hpp>
 #include <evmone/evmone.h>
 #include <evmone/tracing.hpp>
 #include <evmone/vm.hpp>
+#include <intx/intx.hpp>
 #include <silkpre/precompile.h>
-#include <silkworm/common/tracing.hpp>
+
 #include <silkworm/chain/protocol_param.hpp>
+#include <silkworm/common/as_range.hpp>
+#include <silkworm/common/tracing.hpp>
 
 #include "address.hpp"
 
@@ -102,15 +105,23 @@ CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
 }
 
 evmc::Result EVM::create(const evmc_message& message) noexcept {
+    tracer_on_value("EVM::create", "kind", hexu64(static_cast<uint64_t>(message.kind)));
+
     evmc::Result res{EVMC_SUCCESS, message.gas, 0};
 
     auto value{intx::be::load<intx::uint256>(message.value)};
-    if (state_.get_balance(message.sender) < value) {
+    tracer_on_value("EVM::create", "value", "0x" + hex(value));
+
+    auto sender_balance = state_.get_balance(message.sender);
+    tracer_on_value("EVM::create", "sender_balance", "0x" + hex(sender_balance));
+
+    if (sender_balance < value) {
         res.status_code = EVMC_INSUFFICIENT_BALANCE;
         return res;
     }
 
     const uint64_t nonce{state_.get_nonce(message.sender)};
+    tracer_on_value("EVM::create", "nonce", hexu64(nonce));
     if (nonce + 1 < nonce) {
         // EIP-2681: Limit account nonce to 2^64-1
         // See also https://github.com/ethereum/go-ethereum/blob/v1.10.13/core/vm/evm.go#L426
@@ -162,8 +173,12 @@ evmc::Result EVM::create(const evmc_message& message) noexcept {
         message.value,   // value
     };
 
+    tracer_on_value("EVM::create", "message.depth", hexu64(static_cast<uint64_t>(message.depth)));
+
     res =
         evmc::Result{execute(deploy_message, ByteView{message.input_data, message.input_size}, /*code_hash=*/nullptr)};
+
+    tracer_on_value("EVM::create", "res.status_code initial", hexu64(static_cast<uint64_t>(res.status_code)));
 
     if (res.status_code == EVMC_SUCCESS) {
         const size_t code_len{res.output_size};
@@ -191,16 +206,24 @@ evmc::Result EVM::create(const evmc_message& message) noexcept {
             res.gas_left = 0;
         }
     }
+    tracer_on_value("EVM::create", "res.status_code final", hexu64(static_cast<uint64_t>(res.status_code)));
+    tracer_on_value("EVM::create", "res.gas_left", hexu64(static_cast<uint64_t>(res.gas_left)));
 
     return res;
 }
 
 evmc::Result EVM::call(const evmc_message& message) noexcept {
+    tracer_on_value("EVM::call", "kind", hexu64(static_cast<uint64_t>(message.kind)));
+    tracer_on_value("EVM::call", "flags", hexu64(static_cast<uint64_t>(message.flags)));
+
     evmc_result res{evmc_make_result(EVMC_SUCCESS, message.gas, 0, nullptr, 0)};
 
     const auto value{intx::be::load<intx::uint256>(message.value)};
+    tracer_on_value("EVM::call", "value", "0x" + hex(value));
+
     if (message.kind != EVMC_DELEGATECALL && state_.get_balance(message.sender) < value) {
         res.status_code = EVMC_INSUFFICIENT_BALANCE;
+        tracer_on_value("EVM::call", "return early", hexu64(static_cast<uint64_t>(res.status_code)));
         return evmc::Result{res};
     }
 
@@ -218,6 +241,8 @@ evmc::Result EVM::call(const evmc_message& message) noexcept {
     }
 
     if (is_precompiled(message.code_address)) {
+        tracer_on_value("EVM::call", "precompile", "0x" + hex(evmc::address{message.code_address}));
+
         const uint8_t num{message.code_address.bytes[kAddressLength - 1]};
         SilkpreContract contract{kSilkpreContracts[num - 1]};
         const ByteView input{message.input_data, message.input_size};
@@ -242,7 +267,10 @@ evmc::Result EVM::call(const evmc_message& message) noexcept {
             }
         }
     } else {
+        tracer_on_value("EVM::call", "execute", "0x" + hex(evmc::address{message.code_address}));
         const ByteView code{state_.get_code(message.code_address)};
+        tracer_on_value("EVM::call", "code", to_hex(code, true));
+
         if (code.empty() && tracers_.empty()) {  // Do not skip execution if there are any tracers
             return evmc::Result{res};
         }
@@ -257,6 +285,9 @@ evmc::Result EVM::call(const evmc_message& message) noexcept {
             res.gas_left = 0;
         }
     }
+
+    tracer_on_value("EVM::call", "res.status_code final", hexu64(static_cast<uint64_t>(res.status_code)));
+    tracer_on_value("EVM::call", "res.gas_left", hexu64(static_cast<uint64_t>(res.gas_left)));
 
     return evmc::Result{res};
 }

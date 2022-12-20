@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "intra_block_state.hpp"
+#include <silkworm/common/tracing.hpp>
 
 namespace silkworm::state {
 
@@ -44,7 +45,10 @@ void SuicideDelta::revert(IntraBlockState& state) noexcept { state.self_destruct
 
 TouchDelta::TouchDelta(const evmc::address& address) noexcept : address_{address} {}
 
-void TouchDelta::revert(IntraBlockState& state) noexcept { state.touched_.erase(address_); }
+void TouchDelta::revert(IntraBlockState& state) noexcept {
+    tracer_on_value("Delta::revert_touch", "address",   "0x" + hex(address_));
+    state.touched_.erase(address_);
+}
 
 StorageChangeDelta::StorageChangeDelta(const evmc::address& address, const evmc::bytes32& key,
                                        const evmc::bytes32& previous) noexcept

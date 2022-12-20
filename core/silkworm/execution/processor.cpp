@@ -109,6 +109,9 @@ void ExecutionProcessor::execute_transaction(const Transaction& txn, Receipt& re
 
     // award the fee recipient
     const intx::uint256 priority_fee_per_gas{txn.priority_fee_per_gas(base_fee_per_gas)};
+    tracer_on_value("ExecutionProcessor::execute_transaction", "priority_fee_per_gas",  "0x" + hex(priority_fee_per_gas));
+    tracer_on_value("ExecutionProcessor::execute_transaction", "beneficiary",  "0x" + hex(evm_.beneficiary));
+
     state_.add_to_balance(evm_.beneficiary, priority_fee_per_gas * gas_used);
 
     state_.destruct_suicides();

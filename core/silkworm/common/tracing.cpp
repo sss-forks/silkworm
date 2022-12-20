@@ -18,4 +18,9 @@ void tracer_on_value(const std::string& phaseName, const std::string& valueName,
         }
     }
 }
+
+void tracer_clear() {
+    value_tracers_.clear();
+}
+
 }

@@ -14,4 +14,7 @@ class ValueTracer {
 void tracer_add(ValueTracer* tracer);
 
 void tracer_on_value(const std::string& phaseName, const std::string& valueName, const std::string& value);
+
+void tracer_clear();
+
 }

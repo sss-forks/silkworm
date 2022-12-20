@@ -118,6 +118,8 @@ void IntraBlockState::create_contract(const evmc::address& address) noexcept {
 
 void IntraBlockState::touch(const evmc::address& address) noexcept {
     const bool inserted{touched_.insert(address).second};
+    tracer_on_value("IntraBlockState::touch", "address",   "0x" + hex(address));
+    tracer_on_value("IntraBlockState::touch", "inserted",   hexu64(inserted));
 
     // See Yellow Paper, Appendix K "Anomalies on the Main Network"
     // and https://github.com/ethereum/EIPs/issues/716
@@ -136,17 +138,27 @@ bool IntraBlockState::record_suicide(const evmc::address& address) noexcept {
 }
 
 void IntraBlockState::destruct_suicides() {
+    tracer_on_value("IntraBlockState::destruct_suicides", "entry",  hexu64(0));
+
+   std::set<evmc::address> self_destructs__sorted(self_destructs_.begin(), self_destructs_.end());
     for (const auto& address : self_destructs_) {
         destruct(address);
     }
+    tracer_on_value("IntraBlockState::destruct_suicides", "exit",  hexu64(0));
+
 }
 
 void IntraBlockState::destruct_touched_dead() {
-    for (const auto& address : touched_) {
+    tracer_on_value("IntraBlockState::destruct_touched_dead", "entry",  hexu64(0));
+
+    std::set<evmc::address> touched_sorted(touched_.begin(), touched_.end());
+    for (const auto& address : touched_sorted) {
         if (is_dead(address)) {
             destruct(address);
         }
     }
+    tracer_on_value("IntraBlockState::destruct_touched_dead", "exit",  hexu64(0));
+
 }
 
 // Doesn't create a delta since it's called at the end of a transaction,
@@ -359,6 +371,8 @@ void IntraBlockState::revert_to_snapshot(const IntraBlockState::Snapshot& snapsh
 }
 
 void IntraBlockState::finalize_transaction() {
+    tracer_on_value("ExecutionProcessor::finalize_transaction", "entry",  hexu64(0));
+
     for (auto& x : storage_) {
         state::Storage& storage{x.second};
         for (const auto& [key, val] : storage.current) {

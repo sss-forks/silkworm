@@ -89,7 +89,7 @@ class T8nTracer : public EvmTracer {
 
         json r;
         r["type"] = "SwExecutionEnd";
-        r["status_code"] = evmc_status_code_to_string(res.status_code);
+        r["status_code"] = hexu64(static_cast<uint64_t>(res.status_code));
         file << r << std::endl;
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
 
@@ -221,6 +221,68 @@ std::string from_constant_bytes(nlohmann::json o) {
     auto length =  bytes.at("length");
     auto constant = bytes.at("constant").get<std::string>();
     return constant;
+}
+
+void execute_block_no_post_validation(ExecutionProcessor& processor, EVM& evm, std::vector<json>& receipts) {
+    uint64_t txi = 0;
+    for (const Transaction& txn : evm.block().transactions) {
+        json r;
+        r["transactionIndex"] = hexu64(txi);
+
+        ValidationResult err = consensus::pre_validate_transaction(txn, evm.block().header.number, evm.config(), evm.block().header.base_fee_per_gas);
+        if (err != ValidationResult::kOk) {
+            std::cout << "prevalidation failed" << std::endl;
+            r["exception"] = validation_error_str(err);
+            r["status"] = hexu64(0);
+            r["cumulativeGasUsed"] = to_constant_bytes(hexu64(0), 8);
+            receipts.push_back(r);
+            continue;
+        }
+
+        err = processor.validate_transaction(txn);
+        if (err != ValidationResult::kOk) {
+            std::cout << "validation failed" << std::endl;
+            r["exception"] = validation_error_str(err);
+            r["status"] = hexu64(0);
+            r["cumulativeGasUsed"] = to_constant_bytes(hexu64(0), 8);
+            receipts.push_back(r);
+            continue;
+        }
+
+        Receipt receipt = {};
+        processor.execute_transaction(txn, receipt);
+        r["status"] = hexu64(receipt.success);
+        //r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
+        r["cumulativeGasUsed"] = to_constant_bytes(hexu64(receipt.cumulative_gas_used), 8);
+        if (!receipt.outputData.empty()) {
+            r["outputData"] = to_constant_bytes("0x" + to_hex(receipt.outputData), receipt.outputData.size());
+        }
+
+        int logIndex = 0;
+        json jlogs;
+        for (const Log& log : receipt.logs) {
+            json jl;
+            jl["index"] = logIndex;
+            jl["address"] = "0x" + to_hex(log.address);
+            jl["data"] = to_constant_bytes("0x" + to_hex(log.data), log.data.size());
+
+            int topicIndex = 0;
+            json jtopics;
+            for (const evmc::bytes32& topic : log.topics) {
+                json jt;
+                jt["index"] = topicIndex;
+                jt["value"] = to_constant_bytes("0x" + to_hex(topic.bytes), 32);
+                jtopics.push_back(jt);
+                topicIndex++;
+            }
+            jl["topics"] = jtopics;
+            jlogs.push_back(jl);
+            logIndex++;
+        }
+        r["logs"] = jlogs;
+        receipts.push_back(r);
+        txi++;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -372,6 +434,8 @@ int main(int argc, char* argv[]) {
     ExecutionProcessor processor{block, *engine, db, kTestConfig};
     IntraBlockState& state = processor.evm().state();
     EVM& evm = processor.evm();
+    std::vector<json> receipts;
+
 
     std::ofstream* file = nullptr;
     if (crosscheck) {
@@ -382,70 +446,12 @@ int main(int argc, char* argv[]) {
         tracer_add(tracer);
     }
 
-    std::cout << "start transactions" << std::endl;
-    json result;
-    std::vector<json> receipts;
-    uint64_t txi = 0;
-    for (const Transaction& txn : evm.block().transactions) {
-        json r;
-        r["transactionIndex"] = hexu64(txi);
+    execute_block_no_post_validation(processor, evm, receipts);
 
-        ValidationResult err = consensus::pre_validate_transaction(txn, evm.block().header.number, evm.config(), evm.block().header.base_fee_per_gas);
-        if (err != ValidationResult::kOk) {
-            std::cout << "prevalidation failed" << std::endl;
-            r["exception"] = validation_error_str(err);
-            r["status"] = hexu64(0);
-            r["cumulativeGasUsed"] = to_constant_bytes(hexu64(0), 8);
-            receipts.push_back(r);
-            continue;
-        }
-
-        err = processor.validate_transaction(txn);
-        if (err != ValidationResult::kOk) {
-            std::cout << "validation failed" << std::endl;
-            r["exception"] = validation_error_str(err);
-            r["status"] = hexu64(0);
-            r["cumulativeGasUsed"] = to_constant_bytes(hexu64(0), 8);
-            receipts.push_back(r);
-            continue;
-        }
-
-        Receipt receipt = {};
-        processor.execute_transaction(txn, receipt);
-        r["status"] = hexu64(receipt.success);
-        //r["cumulativeGasUsed"] = hex(receipt.cumulative_gas_used);
-        r["cumulativeGasUsed"] = to_constant_bytes(hexu64(receipt.cumulative_gas_used), 8);
-        if (!receipt.outputData.empty()) {
-            r["outputData"] = to_constant_bytes("0x" + to_hex(receipt.outputData), receipt.outputData.size());
-        }
-
-        int logIndex = 0;
-        json jlogs;
-        for (const Log& log : receipt.logs) {
-            json jl;
-            jl["index"] = logIndex;
-            jl["address"] = "0x" + to_hex(log.address);
-            jl["data"] = to_constant_bytes("0x" + to_hex(log.data), log.data.size());
-
-            int topicIndex = 0;
-            json jtopics;
-            for (const evmc::bytes32& topic : log.topics) {
-                json jt;
-                jt["index"] = topicIndex;
-                jt["value"] = to_constant_bytes("0x" + to_hex(topic.bytes), 32);
-                jtopics.push_back(jt);
-                topicIndex++;
-            }
-            jl["topics"] = jtopics;
-            jlogs.push_back(jl);
-            logIndex++;
-        }
-        r["logs"] = jlogs;
-        receipts.push_back(r);
-        txi++;
-    }
     state.finalize_transaction();
     state.write_to_db(processor.evm().block().header.number);
+
+
     state.clear_journal_and_substate();
 
     std::cout << "start post alloc" << std::endl;
@@ -500,8 +506,8 @@ int main(int argc, char* argv[]) {
     posto << std::setw(4) << post << std::endl;
 
     if (file) {
+        tracer_clear();
         file->close();
     }
-
     return 0;
 }
