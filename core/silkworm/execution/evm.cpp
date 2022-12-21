@@ -433,6 +433,10 @@ evmc::bytes32 EvmHost::get_storage(const evmc::address& address, const evmc::byt
 
 evmc_storage_status EvmHost::set_storage(const evmc::address& address, const evmc::bytes32& key,
                                          const evmc::bytes32& new_val) noexcept {
+    tracer_on_value("EVM::set_storage", "address", "0x" + hex(address));
+    tracer_on_value("EVM::set_storage", "key", "0x" + hex(key));
+    tracer_on_value("EVM::set_storage", "new_val", "0x" + hex(new_val));
+
     const evmc::bytes32 current_val{evm_.state().get_current_storage(address, key)};
 
     if (current_val == new_val) {

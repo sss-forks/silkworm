@@ -311,29 +311,51 @@ evmc::bytes32 IntraBlockState::get_storage(const evmc::address& address, const e
 
 void IntraBlockState::set_storage(const evmc::address& address, const evmc::bytes32& key,
                                   const evmc::bytes32& value) noexcept {
+    tracer_on_value("IntraBlockState::set_storage_ibs", "address", "0x" + hex(address));
+    tracer_on_value("IntraBlockState::set_storage_ibs", "key", "0x" + hex(key));
+    tracer_on_value("IntraBlockState::set_storage_ibs", "value", "0x" + hex(value));
+
     evmc::bytes32 prev{get_current_storage(address, key)};
     if (prev == value) {
+        tracer_on_value("IntraBlockState::set_storage_ibs", "no update", hexu64(0));
         return;
     }
+
+    tracer_on_value("IntraBlockState::set_storage_ibs", "set value", "0x" + hex(value));
+
     storage_[address].current[key] = value;
     journal_.emplace_back(new state::StorageChangeDelta{address, key, prev});
 }
 
 void IntraBlockState::write_to_db(uint64_t block_number) {
+    tracer_on_value("IntraBlockState::write_to_db", "entry", hexu64(0));
+
     db_.begin_block(block_number);
 
-    for (const auto& [address, storage] : storage_) {
+    std::map<evmc::address,state::Storage> storage(storage_.begin(), storage_.end());
+    for (const auto& [address, accountStorage] : storage) {
         auto it1{objects_.find(address)};
+
+       tracer_on_value("IntraBlockState::write_to_db", "storage", "0x" + hex(address));
+
         if (it1 == objects_.end()) {
+            tracer_on_value("IntraBlockState::write_to_db", "no object", "0x" + hex(address));
             continue;
         }
         const state::Object& obj{it1->second};
         if (!obj.current) {
+            tracer_on_value("IntraBlockState::write_to_db", "no object.current", "0x" + hex(address));
             continue;
         }
 
-        for (const auto& [key, val] : storage.committed) {
+       std::map<evmc::bytes32,state::CommittedValue> committed(accountStorage.committed.begin(), accountStorage.committed.end());
+        for (const auto& [key, val] : committed) {
             uint64_t incarnation{obj.current->incarnation};
+            tracer_on_value("IntraBlockState::write_to_db", "incarnation", hexu64(incarnation));
+            tracer_on_value("IntraBlockState::write_to_db", "location", "0x" + hex(key));
+            tracer_on_value("IntraBlockState::write_to_db", "initial", "0x" + hex(val.initial));
+            tracer_on_value("IntraBlockState::write_to_db", "original", "0x" + hex(val.original));
+
             db_.update_storage(address, incarnation, key, val.initial, val.original);
         }
     }

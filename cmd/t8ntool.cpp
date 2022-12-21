@@ -447,12 +447,13 @@ int main(int argc, char* argv[]) {
     }
 
     execute_block_no_post_validation(processor, evm, receipts);
-
     state.finalize_transaction();
     state.write_to_db(processor.evm().block().header.number);
 
-
-    state.clear_journal_and_substate();
+    if (file) {
+        tracer_clear();
+        file->close();
+    }
 
     std::cout << "start post alloc" << std::endl;
 
@@ -505,9 +506,5 @@ int main(int argc, char* argv[]) {
     std::ofstream posto(output_post_path);
     posto << std::setw(4) << post << std::endl;
 
-    if (file) {
-        tracer_clear();
-        file->close();
-    }
     return 0;
 }

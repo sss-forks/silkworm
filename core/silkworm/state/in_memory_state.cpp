@@ -24,6 +24,7 @@
 #include <silkworm/rlp/encode.hpp>
 #include <silkworm/trie/hash_builder.hpp>
 #include <silkworm/trie/nibbles.hpp>
+#include <silkworm/common/tracing.hpp>
 
 namespace silkworm {
 
@@ -166,11 +167,21 @@ void InMemoryState::update_account_code(const evmc::address&, uint64_t, const ev
 
 void InMemoryState::update_storage(const evmc::address& address, uint64_t incarnation, const evmc::bytes32& location,
                                    const evmc::bytes32& initial, const evmc::bytes32& current) {
+
     storage_changes_[block_number_][address][incarnation][location] = initial;
 
     if (is_zero(current)) {
+        tracer_on_value("InMemoryState::db_erase_storage", "address", "0x" + hex(address));
+        tracer_on_value("InMemoryState::db_erase_storage", "incarnation", "0x" + hexu64(incarnation));
+        tracer_on_value("InMemoryState::db_erase_storage", "location", "0x" + hex(location));
+
         storage_[address][incarnation].erase(location);
     } else {
+        tracer_on_value("InMemoryState::db_set_storage", "address", "0x" + hex(address));
+        tracer_on_value("InMemoryState::db_set_storage", "incarnation",  hexu64(incarnation));
+        tracer_on_value("InMemoryState::db_set_storage", "location", "0x" + hex(location));
+        tracer_on_value("InMemoryState::db_set_storage", "value", "0x" + hex(current));
+
         storage_[address][incarnation][location] = current;
     }
 }
