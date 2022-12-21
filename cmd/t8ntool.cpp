@@ -352,8 +352,6 @@ int main(int argc, char* argv[]) {
         ExecutionProcessor processor{block, *engine, db, kTestConfig};
         IntraBlockState& state = processor.evm().state();
 
-        std::cout << "Calculated revision: " << processor.evm().revision() << std::endl;
-
         json pre_alloc = pre.value("alloc", json{});
         for (json::iterator it = pre_alloc.begin(); it != pre_alloc.end(); ++it) {
             json account = it.value();
@@ -378,7 +376,6 @@ int main(int argc, char* argv[]) {
 
         json pre_txs = pre.value("txs", json{});
         for (auto& input_tx : pre_txs) {
-            std::cout << "tx start" << std::endl;
             Transaction tx{};
             tx.type = static_cast<Transaction::Type>(intx::from_string<uint64_t>(input_tx.value("type", "0x00")));
             tx.nonce = intx::from_string<uint64_t>(input_tx.value("nonce", "0x00"));
@@ -395,7 +392,6 @@ int main(int argc, char* argv[]) {
             tx.r = 1;
             tx.s = 1;
 
-            std::cout << "tx 1" << std::endl;
             if (tx.type == silkworm::Transaction::Type::kEip1559) {
                 tx.max_priority_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxPriorityFeePerGas", "0x00"));
                 tx.max_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxFeePerGas", "0x00"));
@@ -454,8 +450,6 @@ int main(int argc, char* argv[]) {
         tracer_clear();
         file->close();
     }
-
-    std::cout << "start post alloc" << std::endl;
 
     json alloc(json::value_t::array);
     for (auto& kv : db.accounts()) {
