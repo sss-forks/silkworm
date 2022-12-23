@@ -106,6 +106,8 @@ CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
 
 evmc::Result EVM::create(const evmc_message& message) noexcept {
     tracer_on_value("EVM::create", "kind", hexu64(static_cast<uint64_t>(message.kind)));
+    tracer_on_value("EVM::create", "msg->input_size", hexu64(message.input_size));
+    tracer_on_value("EVM::create", "msg->input_data", to_hex(ByteView {message.input_data, message.input_size}, true));
 
     evmc::Result res{EVMC_SUCCESS, message.gas, 0};
 
@@ -215,6 +217,8 @@ evmc::Result EVM::create(const evmc_message& message) noexcept {
 evmc::Result EVM::call(const evmc_message& message) noexcept {
     tracer_on_value("EVM::call", "kind", hexu64(static_cast<uint64_t>(message.kind)));
     tracer_on_value("EVM::call", "flags", hexu64(static_cast<uint64_t>(message.flags)));
+    tracer_on_value("EVM::call", "msg->input_size", hexu64(message.input_size));
+    tracer_on_value("EVM::call", "msg->input_data", to_hex(ByteView {message.input_data, message.input_size}, true));
 
     evmc_result res{evmc_make_result(EVMC_SUCCESS, message.gas, 0, nullptr, 0)};
 
@@ -539,14 +543,24 @@ evmc::bytes32 EvmHost::get_code_hash(const evmc::address& address) const noexcep
 
 size_t EvmHost::copy_code(const evmc::address& address, size_t code_offset, uint8_t* buffer_data,
                           size_t buffer_size) const noexcept {
+    tracer_on_value("EVM::copy_code", "address",  "0x" + hex(address));
+    tracer_on_value("EVM::copy_code", "code_offset",  hexu64(code_offset));
+
     ByteView code{evm_.state().get_code(address)};
 
     if (code_offset >= code.size()) {
+        tracer_on_value("EVM::copy_code", "get_code is empty",  hexu64(0));
         return 0;
     }
+    tracer_on_value("EVM::copy_code", "get_code ", to_hex(ByteView{code.data(), code.size()}, true));
 
     size_t n{std::min(buffer_size, code.size() - code_offset)};
+    tracer_on_value("EVM::copy_code", "n",  hexu64(n));
+
     std::copy_n(&code[code_offset], n, buffer_data);
+
+    tracer_on_value("EVM::copy_code", "buffer_data", to_hex(ByteView{buffer_data, n}, true));
+
     return n;
 }
 
