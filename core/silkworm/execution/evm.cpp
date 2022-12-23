@@ -269,11 +269,14 @@ evmc::Result EVM::call(const evmc_message& message) noexcept {
     } else {
         tracer_on_value("EVM::call", "execute", "0x" + hex(evmc::address{message.code_address}));
         const ByteView code{state_.get_code(message.code_address)};
-        tracer_on_value("EVM::call", "code", to_hex(code, true));
 
         if (code.empty() && tracers_.empty()) {  // Do not skip execution if there are any tracers
+            tracer_on_value("EVM::call", "code is empty", hexu64(0));
+
             return evmc::Result{res};
         }
+        tracer_on_value("EVM::call", "code", to_hex(code, true));
+
 
         const evmc::bytes32 code_hash{state_.get_code_hash(message.code_address)};
         res = execute(message, code, &code_hash);
@@ -440,6 +443,7 @@ evmc_storage_status EvmHost::set_storage(const evmc::address& address, const evm
     const evmc::bytes32 current_val{evm_.state().get_current_storage(address, key)};
 
     if (current_val == new_val) {
+        tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_ASSIGNED", hexu64(1));
         return EVMC_STORAGE_ASSIGNED;
     }
 
@@ -450,14 +454,16 @@ evmc_storage_status EvmHost::set_storage(const evmc::address& address, const evm
 
     if (!eip1283) {
         if (is_zero(current_val)) {
+            tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_ADDED", hexu64(2));
             return EVMC_STORAGE_ADDED;
         }
 
         if (is_zero(new_val)) {
             evm_.state().add_refund(fee::kRSClear);
+            tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_DELETED", hexu64(3));
             return EVMC_STORAGE_DELETED;
         }
-
+        tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_MODIFIED", hexu64(4));
         return EVMC_STORAGE_MODIFIED;
     }
 
@@ -485,11 +491,13 @@ evmc_storage_status EvmHost::set_storage(const evmc::address& address, const evm
 
     if (original_val == current_val) {
         if (is_zero(original_val)) {
+            tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_ADDED", hexu64(5));
             return EVMC_STORAGE_ADDED;
         }
         if (is_zero(new_val)) {
             evm_.state().add_refund(sstore_clears_refund);
         }
+        tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_MODIFIED", hexu64(6));
         return EVMC_STORAGE_MODIFIED;
     } else {
         if (!is_zero(original_val)) {
@@ -507,6 +515,7 @@ evmc_storage_status EvmHost::set_storage(const evmc::address& address, const evm
                 evm_.state().add_refund(sstore_reset_gas - sload_cost);
             }
         }
+        tracer_on_value("IntraBlockState::set_storage", "return EVMC_STORAGE_ASSIGNED", hexu64(7));
         return EVMC_STORAGE_ASSIGNED;
     }
 }

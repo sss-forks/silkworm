@@ -261,7 +261,9 @@ evmc_access_status IntraBlockState::access_storage(const evmc::address& address,
     if (cold_read) {
         journal_.emplace_back(new state::StorageAccessDelta{address, key});
     }
-    return cold_read ? EVMC_ACCESS_COLD : EVMC_ACCESS_WARM;
+    auto res = cold_read ? EVMC_ACCESS_COLD : EVMC_ACCESS_WARM;
+    tracer_on_value("IntraBlockState::access_storage_ibs", "return", hexu64(res));
+    return res;
 }
 
 evmc::bytes32 IntraBlockState::get_current_storage(const evmc::address& address,
