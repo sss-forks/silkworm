@@ -545,6 +545,8 @@ size_t EvmHost::copy_code(const evmc::address& address, size_t code_offset, uint
                           size_t buffer_size) const noexcept {
     tracer_on_value("EVM::copy_code", "address",  "0x" + hex(address));
     tracer_on_value("EVM::copy_code", "code_offset",  hexu64(code_offset));
+    tracer_on_value("EVM::copy_code", "buffer_size",  hexu64(buffer_size));
+
 
     ByteView code{evm_.state().get_code(address)};
 
@@ -552,7 +554,7 @@ size_t EvmHost::copy_code(const evmc::address& address, size_t code_offset, uint
         tracer_on_value("EVM::copy_code", "get_code is empty",  hexu64(0));
         return 0;
     }
-    tracer_on_value("EVM::copy_code", "get_code ", to_hex(ByteView{code.data(), code.size()}, true));
+    tracer_on_value("EVM::copy_code", "get_code", to_hex(ByteView{code.data(), code.size()}, true));
 
     size_t n{std::min(buffer_size, code.size() - code_offset)};
     tracer_on_value("EVM::copy_code", "n",  hexu64(n));

@@ -66,7 +66,7 @@ class T8nTracer : public EvmTracer {
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
     }
 
-    void on_instruction_start(uint32_t pc, const intx::uint256* /*stack_top*/, int /*stack_height*/,
+    void on_instruction_start(uint32_t pc, const intx::uint256* stack_top, int stack_height,
                               const evmone::ExecutionState& state,
                               const IntraBlockState& intra_block_state) noexcept override {
 
@@ -79,6 +79,11 @@ class T8nTracer : public EvmTracer {
         r["pc"] = pc;
         r["opcode"] = get_name(m_opcode_names, opcode);
         r["gas_left"] = hexu64(static_cast<uint64_t>(state.gas_left));
+        if (stack_height > 0) {
+            r["stack_top"] = "0x" + hex(*stack_top);
+        }
+        r["stack_height"] = static_cast<uint64_t>(stack_height);
+
         file << r << std::endl;
         std::cout <<" \033[33m"  <<  r << " \033[39m" << std::endl;
     }
