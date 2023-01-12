@@ -326,8 +326,10 @@ int main(int argc, char* argv[]) {
     block.header.beneficiary = to_evmc_address(from_hex(pre_env.value("currentCoinbase", "0x")).value());
     block.header.difficulty = intx::from_string<intx::uint256>(pre_env.value("currentDifficulty", "0x00"));
     block.header.gas_limit = intx::from_string<uint64_t>(pre_env.value("currentGasLimit", "0x00"));
-    block.header.number = intx::from_string<uint64_t>(pre_env.value("currentNumber", "0x00"));
-    block.header.timestamp = intx::from_string<uint64_t>(pre_env.value("currentTimestamp", "0x00"));
+    //block.header.number = intx::from_string<uint64_t>(pre_env.value("currentNumber", "0x00"));
+    //block.header.timestamp = intx::from_string<uint64_t>(pre_env.value("currentTimestamp", "0x00"));
+    block.header.number = intx::from_string<uint64_t>(from_constant_bytes(pre_env.value("currentNumber", json{})));
+    block.header.timestamp = intx::from_string<uint64_t>(from_constant_bytes(pre_env.value("currentTimestamp", json{})));
     block.header.base_fee_per_gas = intx::from_string<intx::uint256>(pre_env.value("currentBaseFee", "0x00"));
 
     std::string state_fork = pre_env.value("currentRevision", "invalid");
