@@ -364,9 +364,11 @@ int main(int argc, char* argv[]) {
             json account = it.value();
             std::string balance = from_constant_bytes(account.value("balance", json{}));
 
-            evmc::address address = to_evmc_address(from_hex(account.value("address", "0x00")).value());
+            //evmc::address address = to_evmc_address(from_hex(account.value("address", "0x00")).value());
+            evmc::address address = to_evmc_address(from_hex(from_constant_bytes(account.value("address", json{}))).value());
             state.add_to_balance(address, intx::from_string<intx::uint256>(balance));
-            state.set_nonce(address, intx::from_string<uint64_t>(account.value("nonce", "0x00")));
+            state.set_nonce(address, intx::from_string<uint64_t>(from_constant_bytes(account.value("nonce", json{}))));
+            //state.set_nonce(address, intx::from_string<uint64_t>(account.value("nonce", "0x00")));
             state.set_code(address, from_hex(account.value("code", "0x")).value());
             json storage = account.value("storage", json{});
 
@@ -483,9 +485,9 @@ int main(int argc, char* argv[]) {
         }
 
         json a;
-        a["address"] = to_hex(address, true);
+        a["address"] = to_constant_bytes(to_hex(address, true), 20);
         a["balance"] = to_constant_bytes("0x" + intx::to_string(account.balance, 16), 32);
-        a["nonce"] = hexu64(account.nonce);
+        a["nonce"] = to_constant_bytes(hexu64(account.nonce),8);
         a["code"] = "0x" + to_hex(db.read_code(account.code_hash));
 
         json s(json::value_t::array);
