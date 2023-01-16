@@ -268,7 +268,7 @@ void execute_block_no_post_validation(ExecutionProcessor& processor, EVM& evm, s
         for (const Log& log : receipt.logs) {
             json jl;
             jl["index"] = logIndex;
-            jl["address"] = "0x" + to_hex(log.address);
+            jl["address"] = to_constant_bytes("0x" + to_hex(log.address), 20);
             jl["data"] = to_constant_bytes("0x" + to_hex(log.data), log.data.size());
 
             int topicIndex = 0;
@@ -404,10 +404,10 @@ int main(int argc, char* argv[]) {
             tx.s = 1;
 
             if (tx.type == silkworm::Transaction::Type::kEip1559) {
-                tx.max_priority_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxPriorityFeePerGas", "0x00"));
-                tx.max_fee_per_gas = intx::from_string<intx::uint256>(input_tx.value("maxFeePerGas", "0x00"));
+                tx.max_priority_fee_per_gas = intx::from_string<intx::uint256>(from_constant_bytes(input_tx.value("maxPriorityFeePerGas",json{})));
+                tx.max_fee_per_gas = intx::from_string<intx::uint256>(from_constant_bytes(input_tx.value("maxFeePerGas", json{})));
             } else {
-                auto gas_price = intx::from_string<uint64_t>(input_tx.value("gasPrice", "0x00"));
+                auto gas_price = intx::from_string<uint64_t>(from_constant_bytes(input_tx.value("gasPrice", json{})));
                 tx.max_priority_fee_per_gas = gas_price;
                 tx.max_fee_per_gas = gas_price;
             }
