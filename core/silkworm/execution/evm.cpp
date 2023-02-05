@@ -82,6 +82,7 @@ CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
     const bool contract_creation{!txn.to.has_value()};
     const evmc::address destination{contract_creation ? evmc::address{} : *txn.to};
 
+    tracer_on_value("EVM::execute", "gas before message", hexu64(gas));
     evmc_message message{
         contract_creation ? EVMC_CREATE : EVMC_CALL,  // kind
         0,                                            // flags
@@ -95,6 +96,8 @@ CallResult EVM::execute(const Transaction& txn, uint64_t gas) noexcept {
         {},                                           // create2_salt
         destination,                                  // code_address
     };
+    tracer_on_value("EVM::execute", "gas after message", hexu64(gas));
+    tracer_on_value("EVM::execute", "message->gas", hexu64(static_cast<uint64_t>(message.gas)));
 
     evmc::Result res{contract_creation ? create(message) : call(message)};
 
@@ -217,6 +220,7 @@ evmc::Result EVM::create(const evmc_message& message) noexcept {
 evmc::Result EVM::call(const evmc_message& message) noexcept {
     tracer_on_value("EVM::call", "kind", hexu64(static_cast<uint64_t>(message.kind)));
     tracer_on_value("EVM::call", "flags", hexu64(static_cast<uint64_t>(message.flags)));
+    tracer_on_value("EVM::call", "msg->gas", hexu64(static_cast<uint64_t>(message.gas)));
     tracer_on_value("EVM::call", "msg->input_size", hexu64(message.input_size));
     tracer_on_value("EVM::call", "msg->input_data", to_hex(ByteView {message.input_data, message.input_size}, true));
 
