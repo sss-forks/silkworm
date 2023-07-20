@@ -223,7 +223,7 @@ std::string from_constant_bytes(nlohmann::json o) {
     auto bytesValue = o.at("bytes");
     assert(bytesValue.size() == 1);
     auto bytes = bytesValue.at(0);
-    auto length =  bytes.at("length");
+    //auto length =  bytes.at("length");
     auto constant = bytes.at("constant").get<std::string>();
     return constant;
 }
@@ -369,7 +369,9 @@ int main(int argc, char* argv[]) {
             state.add_to_balance(address, intx::from_string<intx::uint256>(balance));
             state.set_nonce(address, intx::from_string<uint64_t>(from_constant_bytes(account.value("nonce", json{}))));
             //state.set_nonce(address, intx::from_string<uint64_t>(account.value("nonce", "0x00")));
-            state.set_code(address, from_hex(account.value("code", "0x")).value());
+            //state.set_code(address, from_hex(account.value("code", "0x")).value());
+            state.set_code(address, from_hex(from_constant_bytes(account.value("code", json{}))).value());
+
             json storage = account.value("storage", json{});
 
             for (json::iterator sit = storage.begin(); sit != storage.end(); ++sit) {
@@ -488,7 +490,9 @@ int main(int argc, char* argv[]) {
         a["address"] = to_constant_bytes(to_hex(address, true), 20);
         a["balance"] = to_constant_bytes("0x" + intx::to_string(account.balance, 16), 32);
         a["nonce"] = to_constant_bytes(hexu64(account.nonce),8);
-        a["code"] = "0x" + to_hex(db.read_code(account.code_hash));
+        //a["code"] = "0x" + to_hex(db.read_code(account.code_hash));
+        auto code = db.read_code(account.code_hash);
+        a["code"] = to_constant_bytes("0x" + to_hex(code), code.size());
 
         json s(json::value_t::array);
         for (evmc::bytes32 location : locations) {
