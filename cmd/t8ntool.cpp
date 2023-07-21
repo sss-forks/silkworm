@@ -370,7 +370,9 @@ int main(int argc, char* argv[]) {
             state.set_nonce(address, intx::from_string<uint64_t>(from_constant_bytes(account.value("nonce", json{}))));
             //state.set_nonce(address, intx::from_string<uint64_t>(account.value("nonce", "0x00")));
             //state.set_code(address, from_hex(account.value("code", "0x")).value());
-            state.set_code(address, from_hex(from_constant_bytes(account.value("code", json{}))).value());
+            if (account.contains("code") && !account.at("code").is_null()) {
+                state.set_code(address, from_hex(from_constant_bytes(account.value("code", json{}))).value());
+            }
 
             json storage = account.value("storage", json{});
 
@@ -492,7 +494,9 @@ int main(int argc, char* argv[]) {
         a["nonce"] = to_constant_bytes(hexu64(account.nonce),8);
         //a["code"] = "0x" + to_hex(db.read_code(account.code_hash));
         auto code = db.read_code(account.code_hash);
-        a["code"] = to_constant_bytes("0x" + to_hex(code), code.size());
+        if (!code.empty()) {
+            a["code"] = to_constant_bytes("0x" + to_hex(code), code.size());
+        }
 
         json s(json::value_t::array);
         for (evmc::bytes32 location : locations) {
