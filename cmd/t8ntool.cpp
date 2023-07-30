@@ -401,7 +401,9 @@ int main(int argc, char* argv[]) {
             // tx.from = to_evmc_address(from_hex(input_tx.value("from", "0x")).value());
             tx.from = to_evmc_address(from_hex(from_constant_bytes(input_tx.value("from", json{}))).value());
             tx.value = intx::from_string<intx::uint256>(from_constant_bytes(input_tx.value("value", json{})));
-            tx.data = from_hex(from_constant_bytes(input_tx.value("input", json{}))).value();
+            if (input_tx.contains("input") && !input_tx.at("input").is_null()) {
+                tx.data = from_hex(from_constant_bytes(input_tx.value("input", json{}))).value();
+            }
             tx.odd_y_parity = false;
             tx.chain_id = std::nullopt;
             tx.r = 1;
