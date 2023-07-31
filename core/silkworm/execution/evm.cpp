@@ -278,7 +278,7 @@ evmc::Result EVM::call(const evmc_message& message) noexcept {
         tracer_on_value("EVM::call", "execute", "0x" + hex(evmc::address{message.code_address}));
         const ByteView code{state_.get_code(message.code_address)};
 
-        if (code.empty() && tracers_.empty()) {  // Do not skip execution if there are any tracers
+        if (code.empty() /*&& tracers_.empty()*/) {  // Do not skip execution if there are any tracers
             tracer_on_value("EVM::call", "code is empty", hexu64(0));
 
             return evmc::Result{res};
